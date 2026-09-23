@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BTC Live Lab</title>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#080a0f;--panel:#10141c;--border:#202735;--muted:#8d96a8;--text:#f5f7fb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Inter",Arial,sans-serif}
+.wrap{max-width:1400px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+h1{margin:0;font-size:26px}.live{font-size:13px;color:#7ee787}.price{font-size:30px;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}.label{color:var(--muted);font-size:12px;margin-bottom:8px}.value{font-size:21px;font-weight:650}
+.chart{height:560px;margin-top:12px}.preds{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}.pred{font-size:24px}.bar{height:8px;background:#222a37;border-radius:8px;overflow:hidden;margin-top:10px}.fill{height:100%;background:#7ee787}
+.note{color:var(--muted);font-size:12px;margin-top:14px}
+@media(max-width:800px){.grid,.preds{grid-template-columns:1fr 1fr}.chart{height:420px}.wrap{padding:14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>₿ BTC LIVE LAB</h1><div class="live">● LIVE • 1 second refresh</div></div>
+    <div class="price" id="price">—</div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="label">RSI 14</div><div class="value" id="rsi">—</div></div>
+    <div class="card"><div class="label">VOLUME / AVG</div><div class="value" id="vol">—</div></div>
+    <div class="card"><div class="label">VWAP DISTANCE</div><div class="value" id="vwap">—</div></div>
+    <div class="card"><div class="label">LAST DATA</div><div class="value" id="time">—</div></div>
+    <div class="card"><div class="label">ORDER BOOK IMBALANCE</div><div class="value" id="book">—</div></div>
+    <div class="card"><div class="label">SPREAD</div><div class="value" id="spread">—</div></div>
+    <div class="card"><div class="label">TRADE FLOW</div><div class="value" id="flow">—</div></div>
+    <div class="card"><div class="label">RECENT TRADE VOLUME</div><div class="value" id="tv">—</div></div>
+  </div>
+
+  <div class="card chart" id="chart"></div>
+
+  <div class="preds" id="preds"></div>
+  <div class="note">Research dashboard. Model probabilities are not guarantees. Validate with walk-forward backtesting, fees and slippage before considering any trading use.</div>
+</div>
+
+<script>
+const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+  layout:{background:{color:'#10141c'},textColor:'#aab2c0'},
+  grid:{vertLines:{color:'#1c2230'},horzLines:{color:'#1c2230'}},
+  rightPriceScale:{borderColor:'#293140'},
+  timeScale:{borderColor:'#293140',timeVisible:true,secondsVisible:false},
+  crosshair:{mode:0}
+});
+const candles = chart.addCandlestickSeries();
+
+function fmtPct(x){return x == null ? "—" : (x*100).toFixed(2)+"%"}
+function fmtNum(x){return x == null ? "—" : Number(x).toFixed(3)}
+
+async function refresh(){
+  try{
+    const r = await fetch('/api/snapshot?ts='+Date.now(), {cache:'no-store'});
+    const d = await r.json();
+
+    document.getElementById('price').textContent =
+      '$'+d.price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    document.getElementById('rsi').textContent = d.rsi.toFixed(1);
+    document.getElementById('vol').textContent = d.volume_ratio.toFixed(2)+'x';
+    document.getElementById('vwap').textContent = fmtPct(d.vwap_distance);
+    document.getElementById('book').textContent = fmtNum(d.book_imbalance);
+    document.getElementById('spread').textContent = d.spread_bps == null ? "—" : d.spread_bps.toFixed(2)+' bps';
+    document.getElementById('flow').textContent = fmtNum(d.trade_flow);
+    document.getElementById('tv').textContent = d.trade_volume == null ? "—" : d.trade_volume.toFixed(4)+' BTC';
+    document.getElementById('time').textContent = new Date(d.time).toLocaleTimeString();
+
+    candles.setData(d.candles.map(x=>({
+      time: Math.floor(x.t/1000), open:x.o, high:x.h, low:x.l, close:x.c
+    })));
+
+    const box = document.getElementById('preds');
+    box.innerHTML = '';
+    for(const h of ['1','5','15']){
+      const p = d.predictions[h];
+      if(!p) continue;
+      box.innerHTML += `<div class="card">
+        <div class="label">${h}-MINUTE MODEL</div>
+        <div class="pred">${p.signal}</div>
+        <div>UP ${fmtPct(p.up)} &nbsp; DOWN ${fmtPct(p.down)}</div>
+        <div class="bar"><div class="fill" style="width:${Math.round(p.up*100)}%"></div></div>
+      </div>`;
+    }
+  }catch(e){
+    document.getElementById('time').textContent='connection error';
+    console.error(e);
+  }
+}
+refresh();
+setInterval(refresh,1000);
+window.addEventListener('resize',()=>chart.applyOptions({width:document.getElementById('chart').clientWidth}));
+</script>
+</body>
+</html>

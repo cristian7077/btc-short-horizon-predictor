@@ -1,0 +1,34 @@
+BTC SHORT-HORIZON PREDICTION LAB — ALL IN ONE
+
+1. Open Terminal.
+2. Go to this folder:
+   cd ~/Downloads/btc_short_horizon_predictor_ALL_IN_ONE
+
+3. Create the environment:
+   python3 -m venv .venv
+
+4. Activate:
+   source .venv/bin/activate
+
+5. Install everything:
+   pip install -r requirements.txt
+
+6. Train the models:
+   python train.py
+
+7. Start the web terminal:
+   uvicorn web_server:app --host 127.0.0.1 --port 8000
+
+8. Open:
+   http://127.0.0.1:8000
+
+Optional terminal live monitor:
+   python live.py
+
+The web terminal uses the trained 1m, 5m, and 15m models from ./models/.
+It refreshes its market snapshot every second.
+
+IMPORTANT:
+The model is a research project, not a guaranteed trading system.
+Before using any trading strategy, validate it with walk-forward testing,
+fees, slippage, latency, and out-of-sample data.
